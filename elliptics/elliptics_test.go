@@ -294,4 +294,9 @@ Setup env variables. Example: export %s="localhost:1025:2" && export %s="1,2,3"`
 		}
 	}
 
+	for res := range session.WriteCache(testKey, testBlobReader, 5) {
+		if err := res.Error(); err == nil {
+			t.Fatalf("session.WriteCache error: %s", err)
+		}
+	}
 }

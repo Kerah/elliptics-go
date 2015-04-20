@@ -16,6 +16,13 @@
 
 package elliptics
 
+/*
+#include "session.h"
+#include <stdio.h>
+*/
+import "C"
+
+
 import (
 	"fmt"
 	"io"
@@ -24,12 +31,6 @@ import (
 	"net/http"
 	"unsafe"
 )
-
-/*
-#include "session.h"
-#include <stdio.h>
-*/
-import "C"
 
 const defaultVOLUME = 10
 const max_chunk_size uint64 = 10 * 1024 * 1024
@@ -55,6 +56,20 @@ For example Remove:
         log.Println("Error occured: ", rm.Error())
     }
 */
+
+func makeLookuperChan(err error, volume int) chan Lookuper {
+	if volume == 0 {
+		volume = defaultVOLUME
+	}
+	responseCh := make(chan Lookuper, volume)
+	if err != nil {
+		responseCh <- &lookupResult{err: err}
+		close(responseCh)
+	}
+	return responseCh
+
+}
+
 type Session struct {
 	groups  []uint32
 	session unsafe.Pointer
@@ -374,10 +389,7 @@ func (s *Session) WriteData(key string, input io.Reader, offset, total_size uint
 
 	ekey, err := NewKey(key)
 	if err != nil {
-		responseCh := make(chan Lookuper, defaultVOLUME)
-		responseCh <- &lookupResult{err: err}
-		close(responseCh)
-		return responseCh
+		return makeLookuperChan(err, defaultVOLUME)
 	}
 	defer ekey.Free()
 	return s.WriteKey(ekey, input, offset, total_size)
@@ -505,6 +517,68 @@ func (s *Session) WriteChunk(key string, input io.Reader, initial_offset, total_
 		C.context_t(onChunkContext), C.context_t(onFinishContext),
 		ekey.key, C.uint64_t(offset-n64), C.uint64_t(total_size+n64),
 		(*C.char)(unsafe.Pointer(&chunk[0])), C.uint64_t(n))
+	return responseCh
+}
+
+// WriteCache write blob by key to cache with expected timeout by seconds
+func (s *Session) WriteCache(key string, input io.Reader, timeout uint64) <-chan Lookuper {
+	ekey, err := NewKey(key)
+	if err != nil {
+		return makeLookuperChan(err, defaultVOLUME)
+	}
+	defer ekey.Free()
+
+	responseCh := makeLookuperChan(nil, defaultVOLUME)
+
+	onWriteContext := NextContext()
+	onWriteFinishContext := NextContext()
+	chunk_context := NextContext()
+
+	onWriteResult := func(lookup *lookupResult) {
+		responseCh <- lookup
+	}
+
+	onWriteFinish := func(err error) {
+		if err != nil {
+			responseCh <- &lookupResult{err: err}
+		}
+		close(responseCh)
+		Pool.Delete(onWriteContext)
+		Pool.Delete(onWriteFinishContext)
+		Pool.Delete(chunk_context)
+	}
+	log.Printf("write_key: onWriteContext: %d, onWriteFinishContext: %d, onWriteResult: %p, onWriteFinish: %p\n",
+				onWriteContext, onWriteFinishContext, onWriteResult, onWriteFinish)
+
+	chunk, err := ioutil.ReadAll(input)
+
+	if err != nil {
+		responseCh <- &lookupResult{err: err}
+		close(responseCh)
+		return responseCh
+	}
+
+	if len(chunk) == 0 {
+		responseCh <- &lookupResult{
+			err: &DnetError{
+				Code:    -22,
+				Flags:   0,
+				Message: "Invalid zero-length write request",
+			},
+		}
+		close(responseCh)
+		return responseCh
+	}
+
+	Pool.Store(onWriteContext, onWriteResult)
+	Pool.Store(onWriteFinishContext, onWriteFinish)
+	Pool.Store(chunk_context, chunk)
+
+	C.session_write_cache(s.session,
+		C.context_t(onWriteContext), C.context_t(onWriteFinishContext),
+		ekey.key, (*C.char)(unsafe.Pointer(&chunk[0])),
+		C.long(timeout), C.uint64_t(len(chunk)))
+
 	return responseCh
 }
 

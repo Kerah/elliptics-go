@@ -117,6 +117,9 @@ void session_read_data(ell_session *session, context_t on_chunk_context,
 void session_write_data(ell_session *session, context_t on_chunk_context,
 		context_t final_context, ell_key *key, uint64_t offset, char *data, uint64_t size);
 
+void session_write_cache(ell_session *session, context_t on_chunk_context,
+		context_t final_context, ell_key *key, char *data, long timeout, uint64_t size);
+
 // prepare/write/commit sequence for large objects
 // @offset says on which offset should data go
 // @total_size is a size of contiguous disk area to prepare, i.e. disk_size, data_size (or read record size) can be smaller than that

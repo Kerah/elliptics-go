@@ -171,6 +171,18 @@ void session_write_data(ell_session *session, context_t on_chunk_context,
 				       std::bind(&on_finish, final_context, _1));
 }
 
+void session_write_cache(ell_session *session, context_t on_chunk_context,
+			context_t final_context, ell_key *key, char *data, long timeout, uint64_t size)
+{
+	using namespace std::placeholders;
+
+	elliptics::data_pointer tmp = elliptics::data_pointer::from_raw(data, size);
+
+	session->write_cache(*key, tmp, timeout).connect(std::bind(&on_lookup, on_chunk_context, _1),
+				       std::bind(&on_finish, final_context, _1));
+}
+
+
 void session_write_prepare(ell_session *session, context_t on_chunk_context,
 			context_t final_context, ell_key *key,
 			uint64_t offset, uint64_t total_size,
