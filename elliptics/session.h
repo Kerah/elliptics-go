@@ -19,6 +19,8 @@
 
 #include "node.h"
 #include "key.h"
+#include "dnet_attr.h"
+#include "body.h"
 
 typedef uint64_t context_t;
 
@@ -26,6 +28,7 @@ typedef uint64_t context_t;
 
 #include <iostream>
 #include <elliptics/session.hpp>
+
 typedef ioremap::elliptics::session ell_session;
 
 extern "C" {
@@ -33,13 +36,16 @@ extern "C" {
 typedef void ell_session;
 #endif
 
+
 //read_result_entry
 struct go_read_result {
 	const struct dnet_cmd		*cmd;
 	const struct dnet_addr		*addr;
 	const struct dnet_io_attr	*io_attribute;
-	const char			*file;
-	uint64_t				size;
+	const char			        *file;
+	uint64_t				    size;
+
+
 };
 
 //lookup_result_entry
@@ -119,6 +125,9 @@ void session_write_data(ell_session *session, context_t on_chunk_context,
 
 void session_write_cache(ell_session *session, context_t on_chunk_context,
 		context_t final_context, ell_key *key, char *data, long timeout, uint64_t size);
+
+void session_bulk_read(ell_session *session, context_t on_chunk_context, context_t final_context, void *ekeys);
+void session_bulk_write(ell_session *session, context_t on_chunk_context, context_t final_context, ell_bulk_blobs *blobs)
 
 // prepare/write/commit sequence for large objects
 // @offset says on which offset should data go

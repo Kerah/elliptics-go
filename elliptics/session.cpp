@@ -15,6 +15,7 @@
 
 #include "session.h"
 #include <errno.h>
+#include <iostream>
 
 using namespace ioremap;
 
@@ -121,11 +122,26 @@ ioflags_t session_get_ioflags(ell_session *session)
 static void on_read(context_t context, const elliptics::read_result_entry & result)
 {
 	elliptics::data_pointer data(result.file());
-	go_read_result to_go {
+	go_read_result to_go;
+	to_go.cmd = result.command();
+	to_go.addr = result.address();
+	to_go.size = data.size();
+	std::cout << "=====================\n";
+	try {
+		to_go.io_attribute = result.io_attribute();
+	} catch (elliptics::not_found_error) {
+		std::cout << "FAILED IO ATTRIBUTE\n";
+	}
+	try {
+		to_go.file = (const char *)data.data();
+	} catch (elliptics::not_found_error) {
+		std::cout << "FAILED DATA READ\n";
+	}
+
+	/*go_read_result to_go {
 		result.command(), result.address(),
 		result.io_attribute(), (const char *)data.data(), data.size()
-	};
-
+	};*/
 	go_read_callback(&to_go, context);
 }
 
@@ -257,6 +273,43 @@ void session_remove(ell_session *session, context_t on_chunk_context,
 				      std::bind(&on_finish, final_context, _1));
 }
 
+void session_bulk_write(ell_session *session, context_t on_chunk_context,
+		    context_t final_context, ell_bulk_blobs *blobs){
+	using namespace std::placeholders;
+
+	std::vector<dnet_io_attr> ios;
+	for (auto &i : blobs->attrs){
+		dnet_io_attr attr;
+		attr.start = i->start;
+		attr.num = i->num;
+		attr.user_flags = i->user_flags;
+		attr.flags = i->flags;
+		attr.offset = i->offset;
+		attr.size = i->size;
+
+		if (i->id != NULL) {
+			dnet_id id;
+			memset(&id, 0, sizeof(dnet_id));
+			std::string id_key = std::string(i->id);
+
+			session->transform(std::string(i->id), id);
+			for (int j=0; j < DNET_ID_SIZE; j++){
+				attr.id[j] = id.id[j];
+			}
+		}
+
+		ios.emplace_back(attr);
+	}
+	std::vector<std::string> data;
+	for (auto &i : blobs->blobs){
+		std::string blob = i;
+
+		data.emplace_back(blob);
+	}
+	session->bulk_write(ios, data).connect(std::bind(&on_lookup, on_chunk_context, _1),
+				      std::bind(&on_finish, final_context, _1));
+}
+
 void session_bulk_remove(ell_session *session, context_t on_chunk_context, context_t final_context, void *ekeys)
 {
 	using namespace std::placeholders;
@@ -270,6 +323,19 @@ void session_bulk_remove(ell_session *session, context_t on_chunk_context, conte
 	session->set_filter(elliptics::filters::all_with_ack);
 	session->bulk_remove(keys->kk).connect(std::bind(&on_remove, on_chunk_context, _1),
 				      std::bind(&on_finish, final_context, _1));
+}
+
+void session_bulk_read(ell_session *session, context_t on_chunk_context, context_t final_context, void *ekeys){
+	using namespace std::placeholders;
+
+	ell_keys *keys = (ell_keys *)ekeys;
+
+	for (auto it = keys->kk.begin(); it != keys->kk.end(); ++it) {
+		it->transform(*session);
+	}
+	session->bulk_read(keys->kk).connect(std::bind(&on_read, on_chunk_context, _1),
+				      std::bind(&on_finish, final_context, _1));
+
 }
 
 /*
@@ -454,5 +520,6 @@ int session_lookup_addr(ell_session *session, const char *key, int len, int grou
 {
 	return dnet_lookup_addr(session->get_native(), key, len, NULL, group_id, addr, backend_id);
 }
+
 
 } // extern "C"

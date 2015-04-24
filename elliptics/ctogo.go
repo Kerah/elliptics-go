@@ -19,6 +19,7 @@ package elliptics
 #include "session.h"
 #include <stdio.h>
 
+
 static uint64_t dnet_cmd_get_trace_id(struct dnet_cmd* d) {
 	return d->trace_id;
 }
@@ -85,6 +86,7 @@ import (
 	"fmt"
 	"time"
 	"unsafe"
+	"errors"
 )
 
 type DnetAddr struct {
@@ -210,6 +212,27 @@ func NewDnetIOAttr(io *C.struct_dnet_io_attr) DnetIOAttr {
 		Offset:    uint64(C.dnet_io_attr_get_offset(io)),
 		Size:      uint64(C.dnet_io_attr_get_size(io)),
 	}
+}
+
+func (atr *DnetIOAttr) ToIOAttr() (*C.ell_io_attr, error) {
+	attr := C.ell_ell_io_attr_new()
+	if attr == nil {
+		return nil, errors.New("not allocated memory for ell_io_attr")
+	}
+	C.ell_io_attr_set_size(attr, C.uint64_t(atr.Size))
+	C.ell_io_attr_set_offset(attr, C.uint64_t(atr.Offset))
+	C.ell_io_attr_set_flags(attr, C.uint64_t(atr.Flags))
+	C.ell_io_attr_set_total_size(attr, C.uint64_t(atr.TotalSize))
+	C.ell_io_attr_set_user_flags(attr, C.uint64_t(atr.UserFlags))
+	C.ell_io_attr_set_num(attr, C.uint64_t(atr.Num))
+	C.ell_io_attr_set_start(attr, C.uint64_t(atr.Start))
+	if atr.ID != nil && len(atr.ID) > 0 {
+		C.ell_io_attr_set_id(attr, (*C.char)(unsafe.Pointer(&atr.ID[0])))
+	}
+	if atr.Parent != nil && len(atr.Parent) > 0 {
+		C.ell_io_attr_set_parent(attr, (*C.char)(unsafe.Pointer(&atr.Parent[0])))
+	}
+	return attr, nil
 }
 
 type DnetFileInfo struct {

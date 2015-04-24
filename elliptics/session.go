@@ -30,6 +30,7 @@ import (
 	"log"
 	"net/http"
 	"unsafe"
+	"errors"
 )
 
 const defaultVOLUME = 10
@@ -189,6 +190,8 @@ type ReadResult interface {
 
 	// read error
 	Error() error
+
+	Key() string
 }
 
 type readResult struct {
@@ -197,6 +200,7 @@ type readResult struct {
 	ioattr DnetIOAttr
 	data   []byte
 	err    error
+	key    string
 }
 
 func (r *readResult) Cmd() *DnetCmd {
@@ -213,6 +217,10 @@ func (r *readResult) Data() []byte {
 }
 func (r *readResult) Error() error {
 	return r.err
+}
+
+func (r *readResult) Key() string {
+	return r.key
 }
 
 //StreamData sends a stream read from elliptics into given http response writer
@@ -290,6 +298,7 @@ func (s *Session) ReadKey(key *Key, offset, size uint64) <-chan ReadResult {
 	onFinishContext := NextContext()
 
 	onResult := func(result *readResult) {
+
 		responseCh <- result
 	}
 
@@ -313,6 +322,54 @@ func (s *Session) ReadKey(key *Key, offset, size uint64) <-chan ReadResult {
 		C.context_t(onResultContext), C.context_t(onFinishContext),
 		key.key, C.uint64_t(offset), C.uint64_t(size))
 	return responseCh
+}
+
+func (s *Session) BulkRead(keys []string) ( <- chan ReadResult) {
+	ekeys, err := NewKeys(keys)
+	if err != nil {
+		errCh := make(chan ReadResult, 1)
+		errCh <- &readResult{err: err}
+		close(errCh)
+		ekeys.Free()
+		return errCh
+	}
+
+	responseCh := make(chan ReadResult, defaultVOLUME)
+	onResultContext := NextContext()
+	onFinishContext := NextContext()
+
+	onResult := func(result *readResult) {
+		key, err := ekeys.Find(result.Cmd().ID.ID)
+		if err != nil {
+			return
+		}
+		result.key = key
+		responseCh <- result
+	}
+
+	onFinish := func(err error) {
+		if err != nil {
+			responseCh <- &readResult{err: err}
+		}
+
+		close(responseCh)
+		ekeys.Free()
+		Pool.Delete(onResultContext)
+		Pool.Delete(onFinishContext)
+	}
+
+	Pool.Store(onResultContext, onResult)
+	Pool.Store(onFinishContext, onFinish)
+
+	log.Printf("read_key: onResultContext: %d, onFinishContext: %d, onResult: %p, onFinish: %p\n",
+	onResultContext, onFinishContext, onResult, onFinish)
+
+	C.session_bulk_read(s.session,
+		C.context_t(onResultContext), C.context_t(onFinishContext),
+		ekeys.keys,
+	)
+	return responseCh
+
 }
 
 //ReadKey performs a read operation by string representation of key.
@@ -351,6 +408,7 @@ type Lookuper interface {
 
 	//Error returns string respresentation of error.
 	Error() error
+	Key() string
 }
 
 type lookupResult struct {
@@ -360,6 +418,7 @@ type lookupResult struct {
 	storage_addr DnetAddr
 	path         string
 	err          error
+	key          string
 }
 
 func (l *lookupResult) Cmd() *DnetCmd {
@@ -379,6 +438,10 @@ func (l *lookupResult) Path() string {
 }
 func (l *lookupResult) Error() error {
 	return l.err
+}
+
+func (l *lookupResult) Key() string {
+	return l.key
 }
 
 //WriteData writes blob by a given string representation of Key.
@@ -775,6 +838,94 @@ func (s *Session) RemoveKey(key *Key) <-chan Remover {
 	Pool.Store(onResultContext, onResult)
 	Pool.Store(onFinishContext, onFinish)
 	C.session_remove(s.session, C.context_t(onResultContext), C.context_t(onFinishContext), key.key)
+	return responseCh
+}
+
+func (s *Session) BulkWrite(attrs []*DnetIOAttr, data [][]byte) (<- chan Lookuper) {
+	bulk := C.ell_bulk_blobs_new()
+
+	if bulk == nil {
+		return  makeLookuperChan(errors.New("not allocated memory for blobs containter"), defaultVOLUME)
+	}
+	defer C.ell_bulk_blobs_free(bulk)
+	if len(attrs) != len(data) {
+		return  makeLookuperChan(errors.New("inconsistent input parametrs"), defaultVOLUME)
+	}
+	keys_l := make([]string, len(attrs))
+	for i, attr := range attrs {
+		keys_l[i] = string(attr.ID)
+		ioattr, err := attr.ToIOAttr()
+		if err != nil {
+			return  makeLookuperChan(err, defaultVOLUME)
+		}
+		v := data[i]
+		C.ell_bulk_blobs_insert(bulk, ioattr, (*C.char)(unsafe.Pointer(&v[0])), C.uint64_t(len(v)))
+	}
+	keys, err := NewKeys(keys_l)
+	if err != nil {
+		return  makeLookuperChan(err, defaultVOLUME)
+	}
+
+
+
+	/*for k, v := range dataset {
+		//values[i] = v
+		ioattr := new(DnetIOAttr)
+		ioattr.ID = []byte(k)
+		attr, err := ioattr.ToIOAttr()
+		if err != nil {
+			return  makeLookuperChan(err, defaultVOLUME)
+		}
+		C.ell_bulk_blobs_insert(bulk, attr, (*C.char)(unsafe.Pointer(&v[0])), C.uint64_t(len(v)))
+	}*/
+
+	responseCh := makeLookuperChan(nil, defaultVOLUME)
+
+	onResultContext := NextContext()
+	onFinishContext := NextContext()
+
+	onResult := func(r *lookupResult) {
+		if r.err != nil {
+			responseCh <- r
+			return
+		}
+
+		key, err := keys.Find(r.Cmd().ID.ID)
+		if err != nil {
+			return
+		}
+		r.key = key
+		responseCh <- r
+	}
+
+	onFinish := func(err error) {
+		if err != nil {
+			responseCh <- &lookupResult{
+				err: err,
+			}
+		}
+
+		close(responseCh)
+		keys.Free()
+		Pool.Delete(onResultContext)
+		Pool.Delete(onFinishContext)
+	}
+
+	log.Printf("bulk_remove: onResultContext: %d, onFinishContext: %d, onResult: %p, onFinish: %p\n",
+	onResultContext, onFinishContext, onResult, onFinish)
+
+	Pool.Store(onResultContext, onResult)
+	Pool.Store(onFinishContext, onFinish)
+
+	C.session_bulk_write(s.session,
+		C.context_t(onResultContext), C.context_t(onFinishContext),  bulk,
+	)
+
+	//(*C.char)(unsafe.Pointer(&chunk[0]))
+
+	/*C.session_bulk_write(s.session,
+		C.context_t(onResultContext), C.context_t(onFinishContext),
+		(**C.ell_io_attr)(&keys[0]), (**C.char)(unsafe.Pointer(&)))*/
 	return responseCh
 }
 
