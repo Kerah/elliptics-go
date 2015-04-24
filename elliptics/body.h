@@ -21,7 +21,7 @@ typedef struct {
         std::string tmp(data, len);
         std::shared_ptr<ell_io_attr> ioa(attr);
 
-        blobs.emplace_back(data);
+        blobs.emplace_back(tmp);
         attrs.emplace_back(ioa);
     }
 } ell_bulk_blobs;
