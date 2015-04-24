@@ -15,6 +15,7 @@ ell_bulk_blobs *ell_bulk_blobs_new()
 
 void ell_bulk_blobs_free(ell_bulk_blobs *blobs)
 {
+    blobs->attrs[0]->start;
     delete blobs;
 }
 

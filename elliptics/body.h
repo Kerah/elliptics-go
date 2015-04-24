@@ -15,12 +15,14 @@ using namespace ioremap;
 
 typedef struct {
     std::vector <std::string> blobs;
-    std::vector <ell_io_attr*> attrs;
+    std::vector <std::shared_ptr<ell_io_attr>> attrs;
 
     void insert(ell_io_attr *attr, char *data, uint64_t len) {
         std::string tmp(data, len);
-        blobs.emplace_back(tmp);
-        attrs.emplace_back(std::move(attr));
+        std::shared_ptr<ell_io_attr> ioa(attr);
+
+        blobs.emplace_back(data);
+        attrs.emplace_back(ioa);
     }
 } ell_bulk_blobs;
 
