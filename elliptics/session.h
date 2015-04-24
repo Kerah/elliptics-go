@@ -127,7 +127,7 @@ void session_write_cache(ell_session *session, context_t on_chunk_context,
 		context_t final_context, ell_key *key, char *data, long timeout, uint64_t size);
 
 void session_bulk_read(ell_session *session, context_t on_chunk_context, context_t final_context, void *ekeys);
-void session_bulk_write(ell_session *session, context_t on_chunk_context, context_t final_context, ell_bulk_blobs *blobs)
+void session_bulk_write(ell_session *session, context_t on_chunk_context, context_t final_context, ell_bulk_blobs *blobs);
 
 // prepare/write/commit sequence for large objects
 // @offset says on which offset should data go
