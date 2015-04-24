@@ -126,16 +126,13 @@ static void on_read(context_t context, const elliptics::read_result_entry & resu
 	to_go.cmd = result.command();
 	to_go.addr = result.address();
 	to_go.size = data.size();
-	std::cout << "=====================\n";
 	try {
 		to_go.io_attribute = result.io_attribute();
 	} catch (elliptics::not_found_error) {
-		std::cout << "FAILED IO ATTRIBUTE\n";
 	}
 	try {
 		to_go.file = (const char *)data.data();
 	} catch (elliptics::not_found_error) {
-		std::cout << "FAILED DATA READ\n";
 	}
 
 	/*go_read_result to_go {
