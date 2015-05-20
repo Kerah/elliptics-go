@@ -18,7 +18,6 @@ package elliptics
 import (
 	"encoding/hex"
 	"fmt"
-	"log"
 	"unsafe"
 )
 

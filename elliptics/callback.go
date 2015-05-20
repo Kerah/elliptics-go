@@ -6,7 +6,6 @@ package elliptics
 import "C"
 
 import (
-	"log"
 	"reflect"
 	"unsafe"
 )

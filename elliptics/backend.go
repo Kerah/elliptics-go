@@ -16,7 +16,6 @@
 package elliptics
 
 import (
-	"log"
 	"time"
 )
 
