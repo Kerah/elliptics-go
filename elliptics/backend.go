@@ -79,8 +79,6 @@ func go_backend_status_callback(key uint64, list *C.struct_dnet_backend_status_l
 	if err != nil {
 		panic("Unable to find session number")
 	}
-	log.Printf("go_backend_status_callback: key: %d, context: %p, list: %p\n", key, context, list)
-
 	res := &DnetBackendsStatus{
 		Backends: make([]DnetBackendStatus, 0, list.backends_count),
 	}
@@ -113,9 +111,6 @@ func go_backend_status_error(key uint64, cerr *C.struct_go_error) {
 	if err != nil {
 		panic("Unable to find session number")
 	}
-	log.Printf("go_backend_status_error: key: %d, context: %p, error_code: %d, error_message: %p\n",
-		key, context, cerr.code, cerr.message)
-
 	res := &DnetBackendsStatus{
 		Error: &DnetError{
 			Code:    int(cerr.code),
@@ -140,8 +135,6 @@ func (s *Session) BackendsStatus(addr *DnetAddr) <-chan *DnetBackendsStatus {
 	}
 	Pool.Store(context, onFinish)
 
-	log.Printf("backends_status: context: %d, onFinish: %p\n", context, onFinish)
-
 	var tmp *C.struct_dnet_addr = C.dnet_addr_alloc()
 	defer C.dnet_addr_free(tmp)
 	addr.CAddr(tmp)
@@ -160,7 +153,6 @@ func (s *Session) BackendStartDefrag(addr *DnetAddr, backend_id int32) <-chan *D
 		Pool.Delete(context)
 	}
 	Pool.Store(context, onFinish)
-	log.Printf("backend_start_defrag: context: %d, onFinish: %p\n", context, onFinish)
 
 	var tmp *C.struct_dnet_addr = C.dnet_addr_alloc()
 	defer C.dnet_addr_free(tmp)
@@ -180,7 +172,6 @@ func (s *Session) BackendEnable(addr *DnetAddr, backend_id int32) <-chan *DnetBa
 		Pool.Delete(context)
 	}
 	Pool.Store(context, onFinish)
-	log.Printf("backend_enable: context: %d, onFinish: %p\n", context, onFinish)
 
 	var tmp *C.struct_dnet_addr = C.dnet_addr_alloc()
 	defer C.dnet_addr_free(tmp)
@@ -200,7 +191,6 @@ func (s *Session) BackendDisable(addr *DnetAddr, backend_id int32) <-chan *DnetB
 		Pool.Delete(context)
 	}
 	Pool.Store(context, onFinish)
-	log.Printf("backend_disable: context: %d, onFinish: %p\n", context, onFinish)
 
 	var tmp *C.struct_dnet_addr = C.dnet_addr_alloc()
 	defer C.dnet_addr_free(tmp)
@@ -220,7 +210,6 @@ func (s *Session) BackendMakeWritable(addr *DnetAddr, backend_id int32) <-chan *
 		Pool.Delete(context)
 	}
 	Pool.Store(context, onFinish)
-	log.Printf("backend_make_writable: context: %d, onFinish: %p\n", context, onFinish)
 
 	var tmp *C.struct_dnet_addr = C.dnet_addr_alloc()
 	defer C.dnet_addr_free(tmp)
@@ -240,7 +229,6 @@ func (s *Session) BackendMakeReadOnly(addr *DnetAddr, backend_id int32) <-chan *
 		Pool.Delete(context)
 	}
 	Pool.Store(context, onFinish)
-	log.Printf("backend_make_readonly: context: %d, onFinish: %p\n", context, onFinish)
 
 	var tmp *C.struct_dnet_addr = C.dnet_addr_alloc()
 	defer C.dnet_addr_free(tmp)
@@ -260,7 +248,6 @@ func (s *Session) BackendSetDelay(addr *DnetAddr, backend_id int32, delay uint32
 		Pool.Delete(context)
 	}
 	Pool.Store(context, onFinish)
-	log.Printf("backend_set_delay: context: %d, onFinish: %p\n", context, onFinish)
 
 	var tmp *C.struct_dnet_addr = C.dnet_addr_alloc()
 	defer C.dnet_addr_free(tmp)

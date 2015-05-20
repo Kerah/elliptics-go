@@ -450,9 +450,6 @@ func go_stat_callback(result *C.struct_go_stat_result, key uint64) {
 	}
 	callback := context.(func(*StatEntry))
 
-	log.Printf("go_stat_callback: key: %d, context: %p, result.cmd: %p, result.addr: %p, result.stat_data: %p, result.stat_size: %d\n",
-		key, context, result.cmd, result.addr, result.stat_data, result.stat_size)
-
 	res := &StatEntry{
 		cmd:  NewDnetCmd(result.cmd),
 		addr: NewDnetAddr(result.addr),
@@ -489,9 +486,6 @@ func (s *Session) DnetStat() *DnetStat {
 		Pool.Delete(onResultContext)
 		Pool.Delete(onFinishContext)
 	}
-
-	log.Printf("dnet_stat: onResultContext: %d, onFinishContext: %d, onResult: %p, onFinish: %p\n",
-		onResultContext, onFinishContext, onResult, onFinish)
 
 	Pool.Store(onResultContext, onResult)
 	Pool.Store(onFinishContext, onFinish)
@@ -616,8 +610,6 @@ func (stat *DnetStat) AddStatEntry(entry *StatEntry) {
 			backend.Error = vnode.Backend.Error
 
 			if vnode.Backend.Error.Code != 0 {
-				log.Printf("stat: addr: %s, backend: %d, group: %d, error: %d\n",
-					entry.addr.String(), int32(vnode.BackendID), vnode.Backend.Config.Group, vnode.Backend.Error.Code)
 				// do not update backend statistics
 				continue
 			}
@@ -664,9 +656,6 @@ func (stat *DnetStat) AddStatEntry(entry *StatEntry) {
 			}
 		}
 	}
-
-	log.Printf("stat: addr: %s, good-backends: %v, groups: %v\n",
-		entry.addr.String(), backends, groups)
 
 	return
 }

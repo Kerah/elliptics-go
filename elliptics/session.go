@@ -315,9 +315,6 @@ func (s *Session) ReadKey(key *Key, offset, size uint64) <-chan ReadResult {
 	Pool.Store(onResultContext, onResult)
 	Pool.Store(onFinishContext, onFinish)
 
-	log.Printf("read_key: onResultContext: %d, onFinishContext: %d, onResult: %p, onFinish: %p\n",
-		onResultContext, onFinishContext, onResult, onFinish)
-
 	C.session_read_data(s.session,
 		C.context_t(onResultContext), C.context_t(onFinishContext),
 		key.key, C.uint64_t(offset), C.uint64_t(size))
@@ -360,9 +357,6 @@ func (s *Session) BulkRead(keys []string) ( <- chan ReadResult) {
 
 	Pool.Store(onResultContext, onResult)
 	Pool.Store(onFinishContext, onFinish)
-
-	log.Printf("read_key: onResultContext: %d, onFinishContext: %d, onResult: %p, onFinish: %p\n",
-	onResultContext, onFinishContext, onResult, onFinish)
 
 	C.session_bulk_read(s.session,
 		C.context_t(onResultContext), C.context_t(onFinishContext),
@@ -534,9 +528,6 @@ func (s *Session) WriteChunk(key string, input io.Reader, initial_offset, total_
 		}
 	}
 
-	log.Printf("write_chunk: onChunkContext: %d, onFinishContext: %d, onChunkResult: %p, onChunkFinish: %p\n",
-		onChunkContext, onFinishContext, onChunkResult, onChunkFinish)
-
 	rest := total_size
 	if rest > max_chunk_size {
 		rest = max_chunk_size
@@ -610,8 +601,6 @@ func (s *Session) WriteCache(key string, input io.Reader, timeout uint64) <-chan
 		Pool.Delete(onWriteFinishContext)
 		Pool.Delete(chunk_context)
 	}
-	log.Printf("write_key: onWriteContext: %d, onWriteFinishContext: %d, onWriteResult: %p, onWriteFinish: %p\n",
-				onWriteContext, onWriteFinishContext, onWriteResult, onWriteFinish)
 
 	chunk, err := ioutil.ReadAll(input)
 
@@ -666,9 +655,6 @@ func (s *Session) WriteKey(key *Key, input io.Reader, offset, total_size uint64)
 		Pool.Delete(chunk_context)
 	}
 
-	log.Printf("write_key: onWriteContext: %d, onWriteFinishContext: %d, onWriteResult: %p, onWriteFinish: %p\n",
-		onWriteContext, onWriteFinishContext, onWriteResult, onWriteFinish)
-
 	chunk, err := ioutil.ReadAll(input)
 	if err != nil {
 		responseCh <- &lookupResult{err: err}
@@ -719,9 +705,6 @@ func (s *Session) Lookup(key *Key) <-chan Lookuper {
 		Pool.Delete(onFinishContext)
 	}
 
-	log.Printf("lookup: onResultContext: %d, onFinishContext: %d, onResult: %p, onFinish: %p\n",
-		onResultContext, onFinishContext, onResult, onFinish)
-
 	Pool.Store(onResultContext, onResult)
 	Pool.Store(onFinishContext, onFinish)
 
@@ -757,9 +740,6 @@ func (s *Session) ParallelLookup(kstr string) <-chan Lookuper {
 		Pool.Delete(onResultContext)
 		Pool.Delete(onFinishContext)
 	}
-
-	log.Printf("parallel_lookup: onResultContext: %d, onFinishContext: %d, onResult: %p, onFinish: %p\n",
-		onResultContext, onFinishContext, onResult, onFinish)
 
 	Pool.Store(onResultContext, onResult)
 	Pool.Store(onFinishContext, onFinish)
@@ -831,9 +811,6 @@ func (s *Session) RemoveKey(key *Key) <-chan Remover {
 		Pool.Delete(onResultContext)
 		Pool.Delete(onFinishContext)
 	}
-
-	log.Printf("remove_key: onResultContext: %d, onFinishContext: %d, onResult: %p, onFinish: %p\n",
-		onResultContext, onFinishContext, onResult, onFinish)
 
 	Pool.Store(onResultContext, onResult)
 	Pool.Store(onFinishContext, onFinish)
@@ -911,9 +888,6 @@ func (s *Session) BulkWrite(attrs []*DnetIOAttr, data [][]byte) (<- chan Lookupe
 		Pool.Delete(onFinishContext)
 	}
 
-	log.Printf("bulk_remove: onResultContext: %d, onFinishContext: %d, onResult: %p, onFinish: %p\n",
-	onResultContext, onFinishContext, onResult, onFinish)
-
 	Pool.Store(onResultContext, onResult)
 	Pool.Store(onFinishContext, onFinish)
 
@@ -977,9 +951,6 @@ func (s *Session) BulkRemove(keys_str []string) <-chan Remover {
 		Pool.Delete(onResultContext)
 		Pool.Delete(onFinishContext)
 	}
-
-	log.Printf("bulk_remove: onResultContext: %d, onFinishContext: %d, onResult: %p, onFinish: %p\n",
-		onResultContext, onFinishContext, onResult, onFinish)
 
 	Pool.Store(onResultContext, onResult)
 	Pool.Store(onFinishContext, onFinish)
